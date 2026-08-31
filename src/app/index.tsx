@@ -1,98 +1,129 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useCallback, useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect, useRouter } from "expo-router";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { ambilAbsensiHariIni, AbsensiRecord } from "@/services/attendanceService";
+import { formatTanggalLengkap, formatJam } from "@/utils/dateUtils";
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+export default function Index() {
+  const router = useRouter();
+  const [absensiHariIni, setAbsensiHariIni] = useState<AbsensiRecord[]>([]);
+
+  // Refresh data setiap kali halaman ini kembali menjadi fokus
+  useFocusEffect(
+    useCallback(() => {
+      let aktif = true;
+      (async () => {
+        const data = await ambilAbsensiHariIni();
+        if (aktif) setAbsensiHariIni(data);
+      })();
+      return () => {
+        aktif = false;
+      };
+    }, [])
+  );
+
+  const recordMasuk = absensiHariIni.find((r) => r.type === "masuk");
+  const recordPulang = absensiHariIni.find((r) => r.type === "pulang");
+  const sudahAbsenMasuk = Boolean(recordMasuk);
+  const sudahAbsenPulang = Boolean(recordPulang);
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.tanggal}>{formatTanggalLengkap()}</Text>
+      </View>
+
+      <View style={styles.statusCard}>
+        <StatusBaris
+          label="Absen Masuk"
+          sudah={sudahAbsenMasuk}
+          jam={recordMasuk ? formatJam(new Date(recordMasuk.timestamp)) : null}
+        />
+        <StatusBaris
+          label="Absen Pulang"
+          sudah={sudahAbsenPulang}
+          jam={recordPulang ? formatJam(new Date(recordPulang.timestamp)) : null}
+        />
+      </View>
+
+      <TouchableOpacity
+        style={[styles.tombol, sudahAbsenMasuk && styles.tombolNonaktif]}
+        disabled={sudahAbsenMasuk}
+        onPress={() => router.push({ pathname: "/camera", params: { type: "masuk" } })}
+      >
+        <Text style={styles.tombolTeks}>Absen Masuk</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.tombol,
+          styles.tombolPulang,
+          (!sudahAbsenMasuk || sudahAbsenPulang) && styles.tombolNonaktif,
+        ]}
+        disabled={!sudahAbsenMasuk || sudahAbsenPulang}
+        onPress={() => router.push({ pathname: "/camera", params: { type: "pulang" } })}
+      >
+        <Text style={styles.tombolTeks}>Absen Pulang</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.tombolSekunder} onPress={() => router.push("/history")}>
+        <Text style={styles.tombolSekunderTeks}>Lihat Riwayat Absensi</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
   );
 }
 
-export default function HomeScreen() {
+function StatusBaris({
+  label,
+  sudah,
+  jam,
+}: {
+  label: string;
+  sudah: boolean;
+  jam: string | null;
+}) {
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+    <View style={styles.statusBaris}>
+      <Text style={styles.statusLabel}>{label}</Text>
+      <Text style={[styles.statusNilai, sudah ? styles.statusSukses : styles.statusBelum]}>
+        {sudah ? jam : "Belum absen"}
+      </Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+  container: { flex: 1, backgroundColor: "#f5f6fa", padding: 20 },
+  header: { marginBottom: 20, marginTop: 10 },
+  tanggal: { fontSize: 16, color: "#555" },
+  statusCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    elevation: 2,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+  statusBaris: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 8,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+  statusLabel: { fontSize: 15, color: "#333" },
+  statusNilai: { fontSize: 15, fontWeight: "600" },
+  statusSukses: { color: "#2e7d32" },
+  statusBelum: { color: "#999" },
+  tombol: {
+    backgroundColor: "#2563eb",
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 12,
   },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+  tombolPulang: { backgroundColor: "#7c3aed" },
+  tombolNonaktif: { backgroundColor: "#c7c7c7" },
+  tombolTeks: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  tombolSekunder: { alignItems: "center", marginTop: 12 },
+  tombolSekunderTeks: { color: "#2563eb", fontSize: 15 },
 });
