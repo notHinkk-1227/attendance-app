@@ -15,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { simpanAbsensi, AbsensiType } from "@/services/attendanceService";
-import { verifikasiWajah } from "@/services/faceVerificationService";
+import { recognizeFace } from "@/services/faceVerificationService";
 
 const WARNA_AKSEN = "#2563eb";
 const WARNA_AKSEN_PULANG = "#7c3aed";
@@ -89,10 +89,10 @@ export default function CameraScreen() {
     setMenyimpan(true);
     try {
       setStatusSimpan("Memverifikasi wajah...");
-      let hasilVerifikasi;
+      let hasilRecognize;
       try {
-        hasilVerifikasi = await verifikasiWajah(previewUri);
-      } catch (errVerifikasi) {
+        hasilRecognize = await recognizeFace(previewUri);
+      } catch (errRecognize) {
         Alert.alert(
           "Verifikasi Gagal",
           "Tidak bisa menghubungi server verifikasi wajah. Pastikan HP dan server terhubung ke jaringan yang sama, lalu coba lagi."
@@ -100,23 +100,34 @@ export default function CameraScreen() {
         return;
       }
 
-      if (!hasilVerifikasi.is_real) {
-        Alert.alert(
-          "Wajah Tidak Terverifikasi",
-          "Foto terdeteksi bukan wajah asli (kemungkinan dari layar HP atau kertas). Silakan ambil ulang foto langsung menghadap kamera."
-        );
+      if (!hasilRecognize.is_real) {
+        // status === "spoof_detected" — foto terdeteksi bukan wajah asli, minta ambil ulang
+        Alert.alert("Gagal", hasilRecognize.message ?? "Wajah tidak valid, coba lagi.");
         return;
       }
 
+      if (hasilRecognize.status === "no_match") {
+        Alert.alert("Tidak Dikenali", "Wajah tidak cocok dengan data karyawan manapun.");
+        return;
+      }
+
+      if (hasilRecognize.status === "no_face_detected") {
+        Alert.alert("Gagal", hasilRecognize.message ?? "Wajah tidak terdeteksi, coba lagi.");
+        return;
+      }
+
+      // status === "recognized"
       setStatusSimpan("Mencari lokasi...");
       const location = await ambilLokasiDenganTimeout();
 
       setStatusSimpan("Menyimpan foto...");
       await simpanAbsensi({ photoUri: previewUri, type, location });
 
-      Alert.alert("Berhasil", `Absen ${type} berhasil dicatat.`, [
-        { text: "OK", onPress: () => router.replace("/") },
-      ]);
+      Alert.alert(
+        "Absensi Berhasil",
+        `Selamat datang, ${hasilRecognize.name}! Absen ${type} berhasil dicatat.`,
+        [{ text: "OK", onPress: () => router.replace("/") }]
+      );
     } catch (err) {
       Alert.alert("Gagal", "Terjadi kesalahan saat menyimpan absensi. Coba lagi.");
     } finally {
