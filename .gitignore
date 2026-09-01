@@ -1,43 +1,41 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# ============================
+# FRONTEND (Expo / React Native)
+# ============================
+frontend/node_modules/
+frontend/.expo/
+frontend/dist/
+frontend/web-build/
+frontend/expo-env.d.ts
+frontend/.kotlin/
+frontend/*.orig.*
+frontend/*.jks
+frontend/*.p8
+frontend/*.p12
+frontend/*.key
+frontend/*.mobileprovision
+frontend/.metro-health-check*
+frontend/npm-debug.*
+frontend/yarn-debug.*
+frontend/yarn-error.*
+frontend/*.tsbuildinfo
+frontend/example
+frontend/ios
+frontend/android
 
-# dependencies
-node_modules/
+# ============================
+# BACKEND (Python)
+# ============================
+backend/venv/
+backend/__pycache__/
+backend/src/__pycache__/
+backend/*.pyc
+backend/.env
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
-
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
+# ============================
+# UMUM
+# ============================
 .DS_Store
 *.pem
-
-# local env files
 .env*.local
-
-# typescript
-*.tsbuildinfo
-
-example
-
-# generated native folders
-/ios
-/android
+.vscode/
+.idea/
