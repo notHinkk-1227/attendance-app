@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { simpanAbsensi, AbsensiType } from "@/services/attendanceService";
+import { verifikasiWajah } from "@/services/faceVerificationService";
 
 const WARNA_AKSEN = "#2563eb";
 const WARNA_AKSEN_PULANG = "#7c3aed";
@@ -87,6 +88,26 @@ export default function CameraScreen() {
     if (!previewUri || !type) return;
     setMenyimpan(true);
     try {
+      setStatusSimpan("Memverifikasi wajah...");
+      let hasilVerifikasi;
+      try {
+        hasilVerifikasi = await verifikasiWajah(previewUri);
+      } catch (errVerifikasi) {
+        Alert.alert(
+          "Verifikasi Gagal",
+          "Tidak bisa menghubungi server verifikasi wajah. Pastikan HP dan server terhubung ke jaringan yang sama, lalu coba lagi."
+        );
+        return;
+      }
+
+      if (!hasilVerifikasi.is_real) {
+        Alert.alert(
+          "Wajah Tidak Terverifikasi",
+          "Foto terdeteksi bukan wajah asli (kemungkinan dari layar HP atau kertas). Silakan ambil ulang foto langsung menghadap kamera."
+        );
+        return;
+      }
+
       setStatusSimpan("Mencari lokasi...");
       const location = await ambilLokasiDenganTimeout();
 
