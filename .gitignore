@@ -30,7 +30,6 @@ backend/__pycache__/
 backend/src/__pycache__/
 backend/*.pyc
 backend/.env
-backend/attendance.db
 
 # ============================
 # UMUM
@@ -39,4 +38,4 @@ backend/attendance.db
 *.pem
 .env*.local
 .vscode/
-.idea/
+.idea/backend/attendance.db
