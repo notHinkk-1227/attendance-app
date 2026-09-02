@@ -38,4 +38,4 @@ backend/.env
 *.pem
 .env*.local
 .vscode/
-.idea/
+.idea/backend/attendance.db
