@@ -6,29 +6,39 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { CameraView, useCameraPermissions, CameraCapturedPicture } from "expo-camera";
-import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { simpanAbsensi, AbsensiType } from "@/services/attendanceService";
-import { recognizeFace } from "@/services/faceVerificationService";
+import { AbsensiType } from "@/services/attendanceService";
+import { useAttendanceFlow } from "@/hooks/useAttendanceFlow";
 
 const WARNA_AKSEN = "#2563eb";
 const WARNA_AKSEN_PULANG = "#7c3aed";
 
+/**
+ * CameraScreen — SEKARANG hanya bertanggung jawab untuk:
+ *   1. Menampilkan preview kamera & UI (tombol, badge, panduan wajah)
+ *   2. Mengambil foto (`ambilFoto`)
+ *   3. Meneruskan aksi pengguna ke `useAttendanceFlow` (business logic)
+ *
+ * SEBELUM refactor: komponen ini JUGA berisi logic ambil lokasi GPS dan
+ * seluruh alur verifikasi + penyimpanan absensi (fungsi `konfirmasiSimpan`
+ * ~50 baris). Sekarang logic itu ada di `useAttendanceFlow` (lihat
+ * src/hooks/useAttendanceFlow.ts) — komponen ini jadi jauh lebih pendek
+ * dan HANYA mengurus rendering (Single Responsibility Principle).
+ */
 export default function CameraScreen() {
   const router = useRouter();
   const { type } = useLocalSearchParams<{ type: AbsensiType }>();
 
   const [permission, requestPermission] = useCameraPermissions();
   const [previewUri, setPreviewUri] = useState<string | null>(null);
-  const [menyimpan, setMenyimpan] = useState(false);
-  const [statusSimpan, setStatusSimpan] = useState<string>("Menyimpan...");
   const cameraRef = useRef<CameraView>(null);
+
+  const { menyimpan, statusSimpan, konfirmasiSimpan } = useAttendanceFlow(previewUri, type);
 
   if (!permission) {
     return <View style={styles.container} />;
@@ -56,84 +66,6 @@ export default function CameraScreen() {
     const foto: CameraCapturedPicture | undefined =
       await cameraRef.current.takePictureAsync({ quality: 0.6 });
     if (foto) setPreviewUri(foto.uri);
-  }
-
-  // Ambil lokasi dengan akurasi "Balanced" (lebih cepat dari "Highest") dan
-  // batas waktu maksimal, supaya proses tidak menggantung lama kalau sinyal GPS lemah.
-  async function ambilLokasiDenganTimeout(timeoutMs = 6000) {
-    try {
-      const izinLokasi = await Location.requestForegroundPermissionsAsync();
-      if (izinLokasi.status !== "granted") return null;
-
-      const posisiPromise = Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const timeoutPromise = new Promise<null>((resolve) =>
-        setTimeout(() => resolve(null), timeoutMs)
-      );
-
-      const posisi = await Promise.race([posisiPromise, timeoutPromise]);
-      if (!posisi) return null; // timeout tercapai, lanjut tanpa lokasi
-
-      return {
-        latitude: posisi.coords.latitude,
-        longitude: posisi.coords.longitude,
-      };
-    } catch {
-      return null; // gagal ambil lokasi tidak menggagalkan proses absen
-    }
-  }
-
-  async function konfirmasiSimpan() {
-    if (!previewUri || !type) return;
-    setMenyimpan(true);
-    try {
-      setStatusSimpan("Memverifikasi wajah...");
-      let hasilRecognize;
-      try {
-        hasilRecognize = await recognizeFace(previewUri);
-      } catch (errRecognize) {
-        Alert.alert(
-          "Verifikasi Gagal",
-          "Tidak bisa menghubungi server verifikasi wajah. Pastikan HP dan server terhubung ke jaringan yang sama, lalu coba lagi."
-        );
-        return;
-      }
-
-      if (!hasilRecognize.is_real) {
-        // status === "spoof_detected" — foto terdeteksi bukan wajah asli, minta ambil ulang
-        Alert.alert("Gagal", hasilRecognize.message ?? "Wajah tidak valid, coba lagi.");
-        return;
-      }
-
-      if (hasilRecognize.status === "no_match") {
-        Alert.alert("Tidak Dikenali", "Wajah tidak cocok dengan data karyawan manapun.");
-        return;
-      }
-
-      if (hasilRecognize.status === "no_face_detected") {
-        Alert.alert("Gagal", hasilRecognize.message ?? "Wajah tidak terdeteksi, coba lagi.");
-        return;
-      }
-
-      // status === "recognized"
-      setStatusSimpan("Mencari lokasi...");
-      const location = await ambilLokasiDenganTimeout();
-
-      setStatusSimpan("Menyimpan foto...");
-      await simpanAbsensi({ photoUri: previewUri, type, location });
-
-      Alert.alert(
-        "Absensi Berhasil",
-        `Selamat datang, ${hasilRecognize.name}! Absen ${type} berhasil dicatat.`,
-        [{ text: "OK", onPress: () => router.replace("/") }]
-      );
-    } catch (err) {
-      Alert.alert("Gagal", "Terjadi kesalahan saat menyimpan absensi. Coba lagi.");
-    } finally {
-      setMenyimpan(false);
-      setStatusSimpan("Menyimpan...");
-    }
   }
 
   if (previewUri) {
