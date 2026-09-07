@@ -75,7 +75,7 @@ export function useAttendanceFlow(previewUri: string | null, type: AbsensiType |
 
       Alert.alert(
         "Absensi Berhasil",
-        `Selamat datang, ${hasilRecognize.name}! Absen ${type} berhasil dicatat.`,
+        `Selamat datang, ${hasilRecognize.name} ! Absen ${type} berhasil dicatat.`,
         [{ text: "OK", onPress: () => router.replace("/") }]
       );
     } catch (err) {
