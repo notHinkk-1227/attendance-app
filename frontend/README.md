@@ -1,56 +1,78 @@
-# Welcome to your Expo app 👋
+# Frontend — Absensi App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplikasi mobile absensi (Expo Router + TypeScript) dengan verifikasi wajah
+(anti-spoofing + face recognition) dan lokasi GPS.
 
-## Get started
+## Struktur Folder
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+frontend/
+└── src/
+    ├── app/                          → layar aplikasi (Expo Router, 1 file = 1 route)
+    │   ├── _layout.tsx               → root layout (Stack + SafeAreaProvider)
+    │   ├── index.tsx                 → halaman utama (tombol Absen Masuk/Pulang)
+    │   ├── camera.tsx                → ambil foto absensi
+    │   └── history.tsx               → riwayat absensi (data dari server)
+    ├── hooks/
+    │   └── useAttendanceFlow.ts      → logic bisnis alur absensi (lokasi -> verifikasi -> simpan)
+    ├── services/
+    │   ├── faceVerificationService.ts → panggil API backend (recognizeFace, API_BASE_URL)
+    │   ├── locationService.ts         → ambil lokasi GPS dengan timeout
+    │   └── attendanceService.ts       → TIDAK terpakai lagi (peninggalan versi local-storage, aman dihapus)
+    └── utils/
+        └── dateUtils.ts               → format tanggal/jam Bahasa Indonesia
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Cara Kerja Singkat
 
-### Other setup steps
+1. User pilih **Absen Masuk** atau **Absen Pulang** di halaman utama
+2. Kamera depan aktif, ambil foto selfie
+3. Lokasi GPS diambil, lalu foto+type+lokasi dikirim sekaligus ke backend
+4. Backend jalankan anti-spoofing + pengenalan wajah, simpan hasilnya
+5. App menampilkan hasil: nama karyawan (kalau dikenali) atau pesan gagal
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+**Penting:** server (backend) adalah satu-satunya sumber data absensi.
+Aplikasi ini tidak menyimpan riwayat apa pun secara lokal di HP — layar
+History selalu mengambil data langsung dari `GET /api/attendance-logs`.
 
-## Learn more
+## Step 1 — Install Dependencies
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+cd frontend
+npm install
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Step 2 — Sambungkan ke Backend
 
-## Join the community
+Buka `src/services/faceVerificationService.ts`, ganti baris ini dengan IP
+lokal komputer tempat backend dijalankan (lihat `backend/README.md` Step 3):
 
-Join our community of developers creating universal apps.
+```typescript
+export const API_BASE_URL = "http://IP_KOMPUTER_KAMU:8000";
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+**Jangan pakai `localhost`** — itu tidak akan terjangkau dari HP.
+
+## Step 3 — Jalankan
+
+```bash
+npx expo start
+```
+
+Scan QR code dengan **Expo Go** di HP. Pastikan HP dan komputer terhubung
+ke **WiFi yang sama** dengan backend.
+
+## Requirement
+
+- Backend harus sudah jalan duluan (lihat `backend/README.md`)
+- Minimal 1 karyawan sudah terdaftar (`POST /api/employees` di backend),
+  kalau belum ada karyawan terdaftar, absen akan selalu `no_match`
+
+## Troubleshooting
+
+| Masalah | Solusi |
+|---|---|
+| "Verifikasi Gagal — tidak bisa menghubungi server" | Cek `API_BASE_URL` sudah IP yang benar (bukan `localhost`), dan HP+komputer satu WiFi |
+| Wajah selalu "Tidak Dikenali" | Pastikan sudah ada karyawan terdaftar di backend, coba enrollment ulang dengan foto lebih jelas |
+| Warning `SafeAreaView` deprecated | Sudah ditangani — pastikan import dari `react-native-safe-area-context`, bukan `react-native` |
+| Error `Unsupported FormDataPart implementation` | Pastikan pakai `new File(uri)` dari `expo-file-system`, bukan `fetch(uri).blob()` atau object `{uri, name, type}` |

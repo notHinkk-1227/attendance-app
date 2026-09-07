@@ -1,9 +1,11 @@
 # Absensi App
 
-Aplikasi absensi berbasis foto (dengan verifikasi anti-spoofing wajah) dan lokasi, terdiri dari 2 bagian:
+Aplikasi absensi berbasis foto dengan **anti-spoofing** (cek wajah asli/palsu),
+**face recognition** (kenali identitas karyawan), dan lokasi GPS. Terdiri
+dari 2 bagian:
 
-- **`frontend/`** — Aplikasi mobile (Expo / React Native)
-- **`backend/`** — Server API (FastAPI + Python) untuk verifikasi wajah asli/palsu
+- **`frontend/`** — Aplikasi mobile (Expo Router + TypeScript)
+- **`backend/`** — Server API (FastAPI + Python) untuk anti-spoofing, pengenalan wajah, dan penyimpanan data absensi
 
 ## Struktur Folder
 
@@ -37,16 +39,27 @@ Cek berhasil dengan buka `http://localhost:8000/health` di browser — harus mun
 {"status": "ok", "model_ready": true}
 ```
 
-> Catatan: install `torch` cukup besar (~1-2GB) dan makan waktu beberapa menit tergantung koneksi internet.
+> Catatan: install `torch` + `insightface` cukup besar (~2-3GB) dan makan waktu beberapa menit tergantung koneksi internet.
 
-### 2. Cari IP Lokal Komputer
+### 2. Daftarkan Minimal 1 Karyawan
+
+```bash
+curl -X POST http://localhost:8000/api/employees \
+  -F "name=Nama Karyawan" \
+  -F "photos=@/path/ke/foto.jpg"
+```
+
+Tanpa ini, aplikasi akan selalu menampilkan "Tidak Dikenali" saat absen.
+Detail lengkap ada di [`backend/README.md`](./backend/README.md).
+
+### 3. Cari IP Lokal Komputer
 
 HP kamu perlu tahu alamat IP komputer di jaringan WiFi yang sama (bukan `localhost`):
 
 - **Windows**: `ipconfig` → lihat "IPv4 Address"
 - **Mac/Linux**: `ifconfig` atau `ip addr` → biasanya berbentuk `192.168.x.x`
 
-### 3. Jalankan Frontend
+### 4. Jalankan Frontend
 
 ```bash
 cd frontend
@@ -54,7 +67,9 @@ npm install
 npx expo start
 ```
 
-Scan QR code yang muncul dengan aplikasi **Expo Go** di HP. Pastikan HP dan komputer terhubung ke **WiFi yang sama**, dan sesuaikan alamat API (IP backend) di kode frontend sesuai IP yang didapat di langkah 2.
+Sebelum itu, ganti `API_BASE_URL` di `frontend/src/services/faceVerificationService.ts`
+sesuai IP yang didapat di langkah 3. Scan QR code yang muncul dengan aplikasi
+**Expo Go** di HP. Pastikan HP dan komputer terhubung ke **WiFi yang sama**.
 
 ## Requirement
 
